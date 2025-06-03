@@ -106,12 +106,12 @@ echo ""
 echo ""
 
 # Parse anat filename and force right folder's absolute path pt. 2
-[[ "$anat" =~ sub-([^_]+)_ses-([^_]+)(_acq-([^_]+))?(_run-([^_]+))?(_echo-([^_]+))? ]] && \
-  sub=${BASH_REMATCH[1]} && \
-  ses=${BASH_REMATCH[2]} && \
-  acq=${BASH_REMATCH[4]:-} && \
-  run=${BASH_REMATCH[6]:-} && \
-  echo=${BASH_REMATCH[8]:-}
+[[ "$anatname" =~ sub-([^_]+)_ses-([^_]+)(_acq-([^_]+))?(_run-([^_]+))?(_echo-([^_]+))? ]] && \
+	sub=${BASH_REMATCH[1]} && \
+	ses=${BASH_REMATCH[2]} && \
+	acq=${BASH_REMATCH[4]:-} && \
+	run=${BASH_REMATCH[6]:-} && \
+	echo=${BASH_REMATCH[8]:-}
 
 adir=${workdir}/sub-${sub}/ses-${ses}/anat
 aderivdir=${workdir}/derivatives/vessels/sub-${sub}/ses-${ses}/anat
