@@ -136,7 +136,7 @@ if_missing_do mkdir ${rderivdir}
 [[ ! -d ${rderivdir} ]] && exit 2
 
 # Crop and bias field correct anats
-for anatfile in ${anatprefix}_*_${anatsuffix}
+for anatfile in ${anatprefix}_*_${anatsuffix}.nii.gz
 do
 	anatfile=$( basename $( removeniisfx ${anatfile} ) )
 
