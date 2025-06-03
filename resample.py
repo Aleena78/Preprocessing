@@ -1,6 +1,14 @@
+#!/usr/bin/env python3
+"""
+Script to resample image through ITK.
+
+Author: Leena Al-hazmi
+"""
+
 import os
 import sys
 import SimpleITK as sitk
+
 
 def resample_image(input_path, output_path, upsample_factor=2.0):
     
@@ -32,6 +40,7 @@ def resample_image(input_path, output_path, upsample_factor=2.0):
     sitk.WriteImage(upsampled, output_path)
     print(f"Upsampled image saved to {output_path}")
 
+
 def main(tmp, anatfile, anatsuffix):
     # File paths
     echoavg_path = os.path.join(tmp, f"{anatfile}_echoavg_{anatsuffix}.nii.gz")
@@ -48,6 +57,7 @@ def main(tmp, anatfile, anatsuffix):
             resample_image(in_path, out_path)
         else:
             print(f"Warning: input file {in_path} does not exist. Skipping.")
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 4:

@@ -59,11 +59,17 @@ set -e
 ######################################
 ######### Script starts here #########
 ######################################
+echo ""
+echo "Make sure system python is used by prepending /usr/bin to PATH"
+[[ "${PATH%%:*}" != "/usr/bin" ]] && export PATH=/usr/bin:$PATH
+echo "PATH is set to $PATH"
+echo ""
 
 cwd=$(pwd)
 
 # Parse anat filename and force right folder's absolute path pt. 1
 workdir=$( dirname $( realpath ${anat} ) | sed -E 's|/sub-[^_]+/ses-[^_]+/anat||')
+scriptdir=$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )
 anatname=$( basename ${anat} )
 
 if_missing_do stop ${workdir}
@@ -84,6 +90,7 @@ date
 echo ""
 echo ${printcall}
 echo ""
+echo "PATH is set to $PATH"
 checkreqvar anat
 checkoptvar TEs tmp debug
 
@@ -114,7 +121,7 @@ anatsuffix=${anatname#*_echo-?_}
 tmp=${tmp}/sub-${sub}_ses-${ses}_vesselsbfc
 
 # First return of variables discovered so far
-checkoptvar workdir anatname sub ses acq run echo adir aderivdir rderivdir anatprefix anatsuffix tmp
+checkoptvar workdir scriptdir anatname sub ses acq run echo adir aderivdir rderivdir anatprefix anatsuffix tmp
 
 
 # Now move to more interesting things
@@ -122,11 +129,19 @@ cd ${adir} || exit 1
 
 # Create folders
 if_missing_do mkdir ${tmp}
-if_missing_do mkdir ${aderivdir} ${rderivdir}
+if_missing_do mkdir ${aderivdir}
+if_missing_do mkdir ${rderivdir}
+
+[[ ! -d ${aderivdir} ]] && exit 2
+[[ ! -d ${rderivdir} ]] && exit 2
 
 # Crop and bias field correct anats
 for anatfile in ${anatprefix}_*_${anatsuffix}
 do
+	anatfile=$( basename $( removeniisfx ${anatfile} ) )
+
+	[[ "$anatfile" =~ (.*)_echo-([^_]+) ]] && boxfile=${BASH_REMATCH[1]} && echo=${BASH_REMATCH[2]}
+
 	echo ""
 	echo ""
 	echo "************************************"
@@ -135,8 +150,14 @@ do
 	echo ""
 	echo ""
 
-	## 01.Crop 
-	3dAutobox -input ${adir}/${anatfile}.nii.gz -prefix ${tmp}/${anatfile}_ab.nii.gz
+	## 01.Crop based on the first echo
+	if [[ "${echo}" -eq 1 ]]
+	then
+		3dAutobox -extent_ijkord_to_file ${tmp}/${boxfile}_box ${anatfile}.nii.gz
+	fi
+
+	coords=$( awk '{ printf "%s %s ", $2, $3 - $2 + 1 }' ${tmp}/${boxfile}_box )
+	fslroi ${anatfile}.nii.gz ${tmp}/${anatfile}_ab.nii.gz ${coords}
 	## 02. Bias Field Correction with ANTs
 	# 02.1. Truncate (0.01) for Bias Correction
 	echo "Performing BFC on ${anatfile}"
@@ -168,6 +189,14 @@ do
 	fi
 done
 
+echo "************************************"
+echo "***    Check variables"
+echo "************************************"
+
+echo "acqs are " "${acqs[@]}"
+echo "runs are " "${runs[@]}"
+echo "anatfiles are " "${anatfiles[@]}"
+
 for i in "${!anatfiles[@]}"
 do
 	anatfile=${anatfiles[i]}
@@ -179,18 +208,41 @@ do
 	echo "************************************"
 	echo ""
 	echo ""
-	
+
+	echo ""
+	echo "---------------------------"
+	echo "MAKE SURE PYTHON IS CORRECT"
+	echo "---------------------------"
+	alias python=/usr/bin/python
+	alias python3=/usr/bin/python3
+	echo "Python: $( which python ) $( which python3 )"
+	echo ""
+
+	echo ""
+	echo "--------------"
+	echo "Running t2smap"
+	echo "--------------"
+	echo "Python: $( which python ) $( which python3 )"
+
+
 	# T2* mapping and optimal combination
-	t2smap -d ${tmp}/${anatfile}_echo-?_${anatsuffix}_bfc --masktype none -e "${TEs}" --out-dir ${tmp}/TED
-	fslmaths ${tmp}/TED/desc-optcom_bold.nii.gz ${tmp}/${anatfile}_optcom_${anatsuffix}.nii.gz -odt float
-	fslmaths ${tmp}/TED/T2starmap.nii.gz ${tmp}/${anatfile}_t2star_${anatsuffix}.nii.gz -odt float
+	t2smap -d ${tmp}/${anatfile}_echo-?_${anatsuffix}_bfc.nii.gz --masktype none -e ${TEs} --out-dir ${tmp}/${anatfile}_TED
+	fslmaths ${tmp}/${anatfile}_TED/desc-optcom_bold.nii.gz ${tmp}/${anatfile}_optcom_${anatsuffix}.nii.gz -odt float
+	fslmaths ${tmp}/${anatfile}_TED/T2starmap.nii.gz ${tmp}/${anatfile}_t2star_${anatsuffix}.nii.gz -odt float
 
 	# echo average
 	# [ you can substitute this average step with your code if you prefer ]
 	3dMean -prefix ${tmp}/${anatfile}_echoavg_${anatsuffix}.nii.gz ${tmp}/${anatfile}_echo-?_${anatsuffix}_bfc.nii.gz
 
 	# sampling
-	python resample.py ${tmp} ${anatfile} ${anatsuffix} 
+	alias python=/usr/bin/python
+	alias python3=/usr/bin/python3
+	echo "--------------"
+	echo "Running resampling"
+	echo "--------------"
+	echo "Python: $( which python ) $( which python3 )"
+
+	${scriptdir}/resample.py ${tmp} ${anatfile} ${anatsuffix} 
  
 	# realign to vesselref (first file in input)
 	echo ""
@@ -239,13 +291,8 @@ echo ""
 echo ""
 
 # Brain extraction
-3dSkullStrip -input ${aderivdir}/00.${anatprefix}_${anatsuffix}_esavgd_preprocessed.nii.gz \
-			 -prefix ${tmp}/anat_brain.nii.gz \
-			 -orig_vol -overwrite
-# Momentarily forcefully change header because SkullStrips plumbs the volume.
-3dcalc -a ${aderivdir}/00.${anatprefix}_${anatsuffix}_esavgd_preprocessed.nii.gz -b ${tmp}/anat_brain.nii.gz -expr "a*step(b)" \
-	   -prefix ${tmp}/anat_brain.nii.gz -overwrite
-fslmaths ${tmp}/anat_brain.nii.gz -bin ${aderivdir}/00.${anatprefix}_${anatsuffix}_mask
+bet ${aderivdir}/00.${anatprefix}_${anatsuffix}_esavgd_preprocessed.nii.gz ${tmp}/anat_brain.nii.gz -R -f 0.5 -g 0 -n -m
+mv ${tmp}/anat_brain_mask.nii.gz ${aderivdir}/00.${anatprefix}_${anatsuffix}_mask
 
 cd ${cwd}
 
