@@ -226,13 +226,19 @@ do
 
 
 	# T2* mapping and optimal combination
-	t2smap -d ${tmp}/${anatfile}_echo-?_${anatsuffix}_bfc.nii.gz --masktype none -e ${TEs} --out-dir ${tmp}/${anatfile}_TED
-	fslmaths ${tmp}/${anatfile}_TED/desc-optcom_bold.nii.gz ${tmp}/${anatfile}_optcom_${anatsuffix}.nii.gz -odt float
-	fslmaths ${tmp}/${anatfile}_TED/T2starmap.nii.gz ${tmp}/${anatfile}_t2star_${anatsuffix}.nii.gz -odt float
+	for run in $(ls ${tmp}/${anatfile}_run-*_echo-1_${anatsuffix}_bfc.nii.gz | sed -E 's/.*_run-([0-9]+)_echo-.*/\1/' | sort -u); do
+	    t2smap -d ${tmp}/${anatfile}_run-${run}_echo-?_${anatsuffix}_bfc.nii.gz \
+       		 --masktype none -e ${TEs} --out-dir ${tmp}/${anatfile}_TED_run-${run}
+
+ 	   # Fix outputs per run
+    		fslmaths ${tmp}/${anatfile}_TED_run-${run}/desc-optcom_bold.nii.gz ${tmp}/${anatfile}_optcom_${anatsuffix}.nii.gz -odt float
+            	fslmaths ${tmp}/${anatfile}_TED_run-${run}/T2starmap.nii.gz ${tmp}/${anatfile}_t2star_${anatsuffix}.nii.gz -odt float
+	done
 
 	# echo average
 	# [ you can substitute this average step with your code if you prefer ]
-	3dMean -prefix ${tmp}/${anatfile}_echoavg_${anatsuffix}.nii.gz ${tmp}/${anatfile}_echo-?_${anatsuffix}_bfc.nii.gz
+	3dMean -prefix ${aderivdir}/00.${anatprefix}_${anatsuffix}_esavgd_preprocessed.nii.gz \
+	${aderivdir}/${anatprefix}_*_echoavg_${anatsuffix}2vesselref.nii.gz
 
 	# sampling
 	alias python=/usr/bin/python
@@ -254,11 +260,11 @@ do
 	echo ""
 	if (( i == 0 ))
 	then
-		if_missing_do copy ${tmp}/${anatfile}_echoavg_${anatsuffix} ${rderivdir}/sub-${sub}_ses-${ses}_vesselref_downsampled.nii.gz
-		if_missing_do copy ${tmp}/${anatfile}_echoavg_upsampled_${anatsuffix} ${rderivdir}/sub-${sub}_ses-${ses}_vesselref.nii.gz
-		if_missing_do copy ${tmp}/${anatfile}_echoavg_upsampled_${anatsuffix} ${aderivdir}/${anatfile}_echoavg_${anatsuffix}2vesselref.nii.gz
-		if_missing_do copy ${tmp}/${anatfile}_optcom_upsampled_${anatsuffix} ${aderivdir}/${anatfile}_optcom_${anatsuffix}2vesselref.nii.gz
-		if_missing_do copy ${tmp}/${anatfile}_t2star_upsampled_${anatsuffix} ${aderivdir}/${anatfile}_t2star_${anatsuffix}2vesselref.nii.gz
+		if_missing_do copy ${tmp}/${anatfile}_echoavg_${anatsuffix}.nii.gz ${rderivdir}/sub-${sub}_ses-${ses}_vesselref_downsampled.nii.gz
+		if_missing_do copy ${tmp}/${anatfile}_echoavg_upsampled_${anatsuffix}.nii.gz ${rderivdir}/sub-${sub}_ses-${ses}_vesselref.nii.gz
+		if_missing_do copy ${tmp}/${anatfile}_echoavg_upsampled_${anatsuffix}.nii.gz ${aderivdir}/${anatfile}_echoavg_${anatsuffix}2vesselref.nii.gz
+		if_missing_do copy ${tmp}/${anatfile}_optcom_upsampled_${anatsuffix}.nii.gz ${aderivdir}/${anatfile}_optcom_${anatsuffix}2vesselref.nii.gz
+		if_missing_do copy ${tmp}/${anatfile}_t2star_upsampled_${anatsuffix}.nii.gz ${aderivdir}/${anatfile}_t2star_${anatsuffix}2vesselref.nii.gz
 	else
 		flirt -in ${tmp}/${anatfile}_echoavg_upsampled_${anatsuffix} -ref ${rderivdir}/sub-${sub}_ses-${ses}_vesselref.nii.gz -cost normcorr -searchcost normcorr -dof 6 \
 		-omat ${rderivdir}/${anatfile}2vesselref_fsl.mat -o ${aderivdir}/${anatfile}_echoavg_${anatsuffix}2vesselref.nii.gz
