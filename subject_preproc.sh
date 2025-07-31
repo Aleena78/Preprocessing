@@ -179,12 +179,12 @@ do
 
 	if [ ${#runs[@]} -eq 0 ] || [ -z "${runs[0]}" ] && [ ${#runs[@]} -eq 1 ]
 	then
+		anatfiles+=("${workanat}")
+	else
 		for r in "${runs[@]}"
 		do
 			anatfiles+=("${workanat}_run-${r}")
 		done
-	else
-		anatfiles+=("${workanat}")
 	fi
 done
 
@@ -241,11 +241,11 @@ do
 	echo ""
 	if (( i == 0 ))
 	then
-		if_missing_do copy ${tmp}/${anatfile}_echoavg_${anatsuffix} ${rderivdir}/sub-${sub}_ses-${ses}_vesselref_downsampled.nii.gz
-		if_missing_do copy ${tmp}/${anatfile}_echoavg_upsampled_${anatsuffix} ${rderivdir}/sub-${sub}_ses-${ses}_vesselref.nii.gz
-		if_missing_do copy ${tmp}/${anatfile}_echoavg_upsampled_${anatsuffix} ${aderivdir}/${anatfile}_echoavg_${anatsuffix}2vesselref.nii.gz
-		if_missing_do copy ${tmp}/${anatfile}_optcom_upsampled_${anatsuffix} ${aderivdir}/${anatfile}_optcom_${anatsuffix}2vesselref.nii.gz
-		if_missing_do copy ${tmp}/${anatfile}_t2star_upsampled_${anatsuffix} ${aderivdir}/${anatfile}_t2star_${anatsuffix}2vesselref.nii.gz
+		if_missing_do copy ${tmp}/${anatfile}_echoavg_${anatsuffix}.nii.gz ${rderivdir}/sub-${sub}_ses-${ses}_vesselref_downsampled.nii.gz
+		if_missing_do copy ${tmp}/${anatfile}_echoavg_upsampled_${anatsuffix}.nii.gz ${rderivdir}/sub-${sub}_ses-${ses}_vesselref.nii.gz
+		if_missing_do copy ${tmp}/${anatfile}_echoavg_upsampled_${anatsuffix}.nii.gz ${aderivdir}/${anatfile}_echoavg_${anatsuffix}2vesselref.nii.gz
+		if_missing_do copy ${tmp}/${anatfile}_optcom_upsampled_${anatsuffix}.nii.gz ${aderivdir}/${anatfile}_optcom_${anatsuffix}2vesselref.nii.gz
+		if_missing_do copy ${tmp}/${anatfile}_t2star_upsampled_${anatsuffix}.nii.gz ${aderivdir}/${anatfile}_t2star_${anatsuffix}2vesselref.nii.gz
 	else
 		flirt -in ${tmp}/${anatfile}_echoavg_upsampled_${anatsuffix} -ref ${rderivdir}/sub-${sub}_ses-${ses}_vesselref.nii.gz -cost normcorr -searchcost normcorr -dof 6 \
 		-omat ${rderivdir}/${anatfile}2vesselref_fsl.mat -o ${aderivdir}/${anatfile}_echoavg_${anatsuffix}2vesselref.nii.gz
