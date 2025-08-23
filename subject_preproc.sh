@@ -34,7 +34,6 @@ do
 	case "$1" in
 		-anat)		anat=$2;shift;;
 
-		-TEs)		TEs="$2";shift;;
 		-tmp)		tmp=$2;shift;;
 		-debug)		debug=yes;;
 
@@ -47,7 +46,7 @@ done
 
 # Check input
 checkreqvar anat
-checkoptvar TEs tmp debug
+checkoptvar tmp debug
 
 [[ ${debug} == "yes" ]] && set -x
 
@@ -180,12 +179,12 @@ do
 
 	if [ ${#runs[@]} -eq 0 ] || [ -z "${runs[0]}" ] && [ ${#runs[@]} -eq 1 ]
 	then
+		anatfiles+=("${workanat}")
+	else
 		for r in "${runs[@]}"
 		do
 			anatfiles+=("${workanat}_run-${r}")
 		done
-	else
-		anatfiles+=("${workanat}")
 	fi
 done
 
@@ -226,19 +225,13 @@ do
 
 
 	# T2* mapping and optimal combination
-	for run in $(ls ${tmp}/${anatfile}_run-*_echo-1_${anatsuffix}_bfc.nii.gz | sed -E 's/.*_run-([0-9]+)_echo-.*/\1/' | sort -u); do
-	    t2smap -d ${tmp}/${anatfile}_run-${run}_echo-?_${anatsuffix}_bfc.nii.gz \
-       		 --masktype none -e ${TEs} --out-dir ${tmp}/${anatfile}_TED_run-${run}
-
- 	   # Fix outputs per run
-    		fslmaths ${tmp}/${anatfile}_TED_run-${run}/desc-optcom_bold.nii.gz ${tmp}/${anatfile}_optcom_${anatsuffix}.nii.gz -odt float
-            	fslmaths ${tmp}/${anatfile}_TED_run-${run}/T2starmap.nii.gz ${tmp}/${anatfile}_t2star_${anatsuffix}.nii.gz -odt float
-	done
+	t2smap -d ${tmp}/${anatfile}_echo-?_${anatsuffix}_bfc.nii.gz --masktype none -e ${TEs} --out-dir ${tmp}/${anatfile}_TED
+	fslmaths ${tmp}/${anatfile}_TED/desc-optcom_bold.nii.gz ${tmp}/${anatfile}_optcom_${anatsuffix}.nii.gz -odt float
+	fslmaths ${tmp}/${anatfile}_TED/T2starmap.nii.gz ${tmp}/${anatfile}_t2star_${anatsuffix}.nii.gz -odt float
 
 	# echo average
 	# [ you can substitute this average step with your code if you prefer ]
-	3dMean -prefix ${aderivdir}/00.${anatprefix}_${anatsuffix}_esavgd_preprocessed.nii.gz \
-	${aderivdir}/${anatprefix}_*_echoavg_${anatsuffix}2vesselref.nii.gz
+	3dMean -prefix ${tmp}/${anatfile}_echoavg_${anatsuffix}.nii.gz ${tmp}/${anatfile}_echo-?_${anatsuffix}_bfc.nii.gz
 
 	# sampling
 	alias python=/usr/bin/python
