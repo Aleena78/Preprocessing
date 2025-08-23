@@ -134,13 +134,16 @@ if_missing_do mkdir ${rderivdir}
 [[ ! -d ${aderivdir} ]] && exit 2
 [[ ! -d ${rderivdir} ]] && exit 2
 
-# Crop and bias field correct anats
-for file in ${anatprefix}_*_${anatsuffix}.nii.gz
+# Get all matching files in the anat folder
+files=( ${anatprefix}_*_${anatsuffix}.nii.gz )
+
+# Loop over the actual files
+for file in "${files[@]}"
 do
-    
+    # Remove .nii.gz suffix for naming
     anatfile=$( basename $( removeniisfx "$file" ) )
 
-    
+    # Extract echo number
     if [[ "$anatfile" =~ (.*)_echo-([^_]+) ]]; then
         boxfile=${BASH_REMATCH[1]}
         echo=${BASH_REMATCH[2]}
@@ -152,20 +155,21 @@ do
     echo "************************************"
     echo ""
 
-    ## 01. Crop based on the first echo
+    # Crop based on the first echo only
     if [[ "${echo}" -eq 1 ]]; then
         3dAutobox -extent_ijkord_to_file ${tmp}/${boxfile}_box "$file"
     fi
 
-    # get crop coordinates and apply cropping
+    # Get crop coordinates and apply cropping
     coords=$( awk '{ printf "%s %s ", $2, $3 - $2 + 1 }' ${tmp}/${boxfile}_box )
     fslroi "$file" ${tmp}/${anatfile}_ab.nii.gz ${coords}
 
-    ## 02. Bias Field Correction with ANTs
+    # Bias Field Correction
     echo "Performing BFC on ${anatfile}"
     ImageMath 3 ${tmp}/${anatfile}_trunc.nii.gz TruncateImageIntensity ${tmp}/${anatfile}_ab.nii.gz 0.02 0.98 256
     N4BiasFieldCorrection -d 3 -i ${tmp}/${anatfile}_trunc.nii.gz -o ${tmp}/${anatfile}_bfc.nii.gz
 done
+
 
 
 # Prepare echoes averaging and T2* mapping
