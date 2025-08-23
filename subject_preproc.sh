@@ -135,35 +135,38 @@ if_missing_do mkdir ${rderivdir}
 [[ ! -d ${rderivdir} ]] && exit 2
 
 # Crop and bias field correct anats
-for anatfile in ${anatprefix}_*_${anatsuffix}.nii.gz
+for file in ${anatprefix}_*_${anatsuffix}.nii.gz
 do
-	anatfile=$( basename $( removeniisfx ${anatfile} ) )
+    
+    anatfile=$( basename $( removeniisfx "$file" ) )
 
-	[[ "$anatfile" =~ (.*)_echo-([^_]+) ]] && boxfile=${BASH_REMATCH[1]} && echo=${BASH_REMATCH[2]}
+    
+    if [[ "$anatfile" =~ (.*)_echo-([^_]+) ]]; then
+        boxfile=${BASH_REMATCH[1]}
+        echo=${BASH_REMATCH[2]}
+    fi
 
-	echo ""
-	echo ""
-	echo "************************************"
-	echo "***    Crop and correct bias field ${anatfile}"
-	echo "************************************"
-	echo ""
-	echo ""
+    echo ""
+    echo "************************************"
+    echo "***    Crop and correct bias field ${anatfile}"
+    echo "************************************"
+    echo ""
 
-	## 01.Crop based on the first echo
-	if [[ "${echo}" -eq 1 ]]
-	then
-		3dAutobox -extent_ijkord_to_file ${tmp}/${boxfile}_box ${anatfile}.nii.gz
-	fi
+    ## 01. Crop based on the first echo
+    if [[ "${echo}" -eq 1 ]]; then
+        3dAutobox -extent_ijkord_to_file ${tmp}/${boxfile}_box "$file"
+    fi
 
-	coords=$( awk '{ printf "%s %s ", $2, $3 - $2 + 1 }' ${tmp}/${boxfile}_box )
-	fslroi ${anatfile}.nii.gz ${tmp}/${anatfile}_ab.nii.gz ${coords}
-	## 02. Bias Field Correction with ANTs
-	# 02.1. Truncate (0.01) for Bias Correction
-	echo "Performing BFC on ${anatfile}"
-	ImageMath 3 ${tmp}/${anatfile}_trunc.nii.gz TruncateImageIntensity ${tmp}/${anatfile}_ab.nii.gz 0.02 0.98 256
-	# 02.2. Bias Correction
-	N4BiasFieldCorrection -d 3 -i ${tmp}/${anatfile}_trunc.nii.gz -o ${tmp}/${anatfile}_bfc.nii.gz
+    # get crop coordinates and apply cropping
+    coords=$( awk '{ printf "%s %s ", $2, $3 - $2 + 1 }' ${tmp}/${boxfile}_box )
+    fslroi "$file" ${tmp}/${anatfile}_ab.nii.gz ${coords}
+
+    ## 02. Bias Field Correction with ANTs
+    echo "Performing BFC on ${anatfile}"
+    ImageMath 3 ${tmp}/${anatfile}_trunc.nii.gz TruncateImageIntensity ${tmp}/${anatfile}_ab.nii.gz 0.02 0.98 256
+    N4BiasFieldCorrection -d 3 -i ${tmp}/${anatfile}_trunc.nii.gz -o ${tmp}/${anatfile}_bfc.nii.gz
 done
+
 
 # Prepare echoes averaging and T2* mapping
 anatfiles=()
